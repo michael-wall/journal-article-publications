@@ -6,6 +6,7 @@ import com.liferay.change.tracking.model.CTEntry;
 import com.liferay.change.tracking.service.CTEntryLocalService;
 import com.liferay.dynamic.data.mapping.storage.DDMFormFieldValue;
 import com.liferay.dynamic.data.mapping.storage.DDMFormValues;
+import com.liferay.expando.kernel.model.ExpandoBridge;
 import com.liferay.journal.model.JournalArticle;
 import com.liferay.journal.service.JournalArticleLocalService;
 import com.liferay.portal.kernel.exception.ModelListenerException;
@@ -40,6 +41,11 @@ import org.osgi.service.component.annotations.Reference;
 public class CTCollectionModelListener extends BaseModelListener<CTCollection> {
 	
 	private static final long GROUP_ID = 20117; // Externalize
+	
+	private static interface FIELDS {
+		static final String POST_LOGIN = "PostLogin";
+		static final String POST_LOGIN_REFERENCE = "PostLoginReference";
+	}
 	
 	@Activate
 	protected void activate(Map<String, Object> properties) {
@@ -112,7 +118,9 @@ public class CTCollectionModelListener extends BaseModelListener<CTCollection> {
     			// Check if latest already included in either map... we only care about the postLogin details of the latest version within this Publications set of changes 
     			if (articlesMap.containsKey(journalArticle.getResourcePrimKey()) || articleDeletedMap.containsKey(journalArticle.getResourcePrimKey()) || articleExpiredMap.containsKey(journalArticle.getResourcePrimKey())) continue; 
 
-    			String postLoginReference = getPostLoginReference(journalArticle, defaultLocale);
+    			getPostLoginReferenceExpandoFields(journalArticle, defaultLocale);
+    			
+    			String postLoginReference = getPostLoginReferenceExpandoFields(journalArticle, defaultLocale);
     				
     			// postLogin true and postLoginReference populated so we care about this change...
     			if (Validator.isNotNull(postLoginReference)) articlesMap.put(journalArticle.getResourcePrimKey(), journalArticle);
@@ -137,13 +145,29 @@ public class CTCollectionModelListener extends BaseModelListener<CTCollection> {
     			if (journalArticle == null) {
     				_log.info("Journal Article not found: " + key);
     			} else {    				
-        			_log.info("Journal Article resourcePrimKey: " + journalArticle.getResourcePrimKey() + ", version: " + journalArticle.getVersion() + ", title: " + journalArticle.getTitle(defaultLanguageId) + ", structureId: " + journalArticle.getDDMStructureId() + " with postLoginReference: " + getPostLoginReference(journalArticle, defaultLocale));
+        			_log.info("Journal Article resourcePrimKey: " + journalArticle.getResourcePrimKey() + ", version: " + journalArticle.getVersion() + ", title: " + journalArticle.getTitle(defaultLanguageId) + ", structureId: " + journalArticle.getDDMStructureId() + " with postLoginReference: " + getPostLoginReferenceExpandoFields(journalArticle, defaultLocale));
     			}    			
     		}
     	}
     }
     
-	private String getPostLoginReference(JournalArticle journalArticle, Locale locale) {
+	private String getPostLoginReferenceExpandoFields(JournalArticle journalArticle, Locale locale) {
+		ExpandoBridge expandoBridge = journalArticle.getExpandoBridge();
+		
+		if (!expandoBridge.hasAttribute(FIELDS.POST_LOGIN) || !expandoBridge.hasAttribute(FIELDS.POST_LOGIN_REFERENCE)) return null;
+		
+		String postLoginString = expandoBridge.getAttribute(FIELDS.POST_LOGIN).toString();
+		
+		if (Validator.isNull(postLoginString) || !postLoginString.equalsIgnoreCase("true")) return null; 
+		
+		String postLoginReference = expandoBridge.getAttribute(FIELDS.POST_LOGIN_REFERENCE).toString();
+		
+		if (Validator.isNull(postLoginReference)) return null;
+				
+		return postLoginReference;
+	}    
+    
+	private String getPostLoginReferenceStructureFields(JournalArticle journalArticle, Locale locale) {
 		DDMFormValues ddmFormValues = journalArticle.getDDMFormValues();
 		List<DDMFormFieldValue> fieldValues = ddmFormValues.getDDMFormFieldValues();
 		
@@ -151,7 +175,7 @@ public class CTCollectionModelListener extends BaseModelListener<CTCollection> {
 		String postLoginReference = null;
 
 		for (DDMFormFieldValue fieldValue : fieldValues) {
-			if ("PostLogin".equals(fieldValue.getFieldReference())) {
+			if (FIELDS.POST_LOGIN.equals(fieldValue.getFieldReference())) {
 				if (fieldValue.getValue() == null) return null;
 				
 				postLogin = Boolean.parseBoolean(fieldValue.getValue().getString(locale));
