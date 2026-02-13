@@ -6,11 +6,21 @@
   - It also removes articles that were moved to trask or expired within the Publication.
 
 ## Setup ##
+- Create the following Web Content Article Custom fields:
+  - Name / Key: PostLogin
+     - Type: True / False
+     - Default Value: False
+     - Localize Field Name Disabled
+     - Searchable as Keyword Enabled
+  - Name / Key: PostLoginReference
+    - Type: Input Field / Text
+     - Localize Field Name Disabled
+     - Searchable as Keyword Enabled
 - Build and deploy the custom OSGi module to all nodes in the environment:
   - ctcollection-model-listener / com.mw.ctcollection.model.listener-1.0.0.jar
-
+ 
 ## TODO ##
-- Switch the logic to use custom fields rather than structure fields. This will make it structure agnostic as all structures including BASIC_WEB_CONTENT will have the custom fields.
+- Externalize the Site Group Id hardcoded in CTCollectionModelListener GROUP_ID.
 
 ## Notes ##
 - This is a ‘proof of concept’ that is being provided ‘as is’ without any support coverage or warranty.
