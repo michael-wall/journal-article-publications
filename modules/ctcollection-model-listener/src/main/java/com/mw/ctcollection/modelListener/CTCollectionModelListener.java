@@ -48,7 +48,7 @@ import org.osgi.service.component.annotations.Reference;
 public class CTCollectionModelListener extends BaseModelListener<CTCollection> {
 	
 	// Site groupId(s) and / or Asset Library groupId(s)
-	private static final long[] GROUP_IDS = {20117, 34537}; // Externalize
+	private static final long[] GROUP_IDS = {20117, 34537}; // TODO Externalize
 	
 	private static interface FIELDS {
 		static final String POST_LOGIN = "PostLogin";
@@ -190,6 +190,8 @@ public class CTCollectionModelListener extends BaseModelListener<CTCollection> {
 				_log.info("Journal Article not found: " + key);
 			} else {    				
     			_log.info("Journal Article resourcePrimKey: " + journalArticle.getResourcePrimKey() + ", version: " + journalArticle.getVersion() + ", title: " + journalArticle.getTitle(defaultLanguageId) + ", structureId: " + journalArticle.getDDMStructureId() + " with postLoginReference: " + getPostLoginReferenceExpandoFields(journalArticle, defaultLocale));
+    			
+    			// TODO: DO SOMETHING HERE...
 			}    			
 		}
     }

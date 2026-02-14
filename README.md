@@ -1,9 +1,11 @@
 ## Introduction ##
 - This custom OSGi module contains a custom Model Listener for CTCollection entity.
-- The logic is within onAfterUpdate with a check for model.getStatus() == WorkflowConstants.STATUS_APPROVED to ensure it is only triggered when a Publication is Published.
-- The logic identifes the set of Web Content Articles that have been added or modified within the Publication within a specific Site and which have PostLogin structure field true and PostLoginReference structure field populated.
-  - It deduplicates for articles that were created and then update or had multiple updates performed within the Publication.
-  - It also removes articles that were moved to trask or expired within the Publication.
+- The logic is triggered asnynchronously from within the onAfterUpdate event after a check for model.getStatus() == WorkflowConstants.STATUS_APPROVED to ensure it is only triggered when a Publication is Published.
+- The logic identifies the relevant set of unique Web Content Articles that have been added or modified within the Publication based on the following logic:
+  - They are within a specified set of Sites and / or Asset Libraries.
+  - They have the PostLogin custom field set to true and the PostLoginReference custom field populated.
+  - Deduplicates articles that were created and then updated within the Publication or existing articles that had multiple updates performed within the Publication.
+  - Excludes articles that were moved to trash or that were expired within the Publication.
 
 ## Setup ##
 - Create the following Web Content Article Custom fields:
@@ -20,7 +22,7 @@
   - ctcollection-model-listener / com.mw.ctcollection.model.listener-1.0.0.jar
  
 ## TODO ##
-- Externalize the Site Group Id hardcoded in CTCollectionModelListener GROUP_ID.
+- Externalize the Site Group Id(s) / Asset Library Group Id(s) that are currently hardcoded in CTCollectionModelListener GROUP_IDS.
 
 ## Notes ##
 - This is a ‘proof of concept’ that is being provided ‘as is’ without any support coverage or warranty.
