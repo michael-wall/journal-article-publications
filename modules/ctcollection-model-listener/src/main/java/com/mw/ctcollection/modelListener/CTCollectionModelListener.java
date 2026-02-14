@@ -70,6 +70,8 @@ public class CTCollectionModelListener extends BaseModelListener<CTCollection> {
     public void onAfterUpdate(CTCollection originalModel, CTCollection model) throws ModelListenerException {
     	_log.info("onAfterUpdate");
     	
+    	// Note: Do not allow an exception to be thrown in the onAfterUpdate code as it may cause the Publication Publish transaction to be rolled back...
+    	
     	boolean run = false;
     	
     	if (originalModel.getStatus() == WorkflowConstants.STATUS_PENDING && model.getStatus() == WorkflowConstants.STATUS_APPROVED) { // Just Published...
@@ -104,6 +106,7 @@ public class CTCollectionModelListener extends BaseModelListener<CTCollection> {
     private void onAfterUpdateJournalArticles(PermissionChecker permissionChecker, CTCollection originalModel, CTCollection model) {
     	_log.info("onAfterUpdateJournalArticles");
     	
+    	// Required so that the code running in the thread can access to Custom fields.
     	PrincipalThreadLocal.setName(permissionChecker.getUserId());
     	PermissionThreadLocal.setPermissionChecker(permissionChecker);
 
@@ -116,13 +119,22 @@ public class CTCollectionModelListener extends BaseModelListener<CTCollection> {
     	Map<Long, Long> articleExpiredMap = new HashMap<Long, Long>();
 
     	List<CTEntry> ctEntriesList = new ArrayList<CTEntry>(_ctEntryLocalService.getCTEntries(model.getCtCollectionId(), getJournalArticleClassNameId()));
+    	
+    	if (ctEntriesList.isEmpty()) {
+    		_log.info("No Journal Article ctEnties.");
+    		
+    		return;
+    	}
     		
 		_log.info("Original Journal Articles ctEntries count: " + ctEntriesList.size());
 		
 		ctEntriesList.sort(Comparator.comparing(CTEntry::getCreateDate).reversed()); // Latest first...
 		
 		for (CTEntry ctEntry: ctEntriesList) {
-			long modelClassPK = ctEntry.getModelClassPK();
+			long modelClassPK = ctEntry.getModelClassPK(); // Version specific.
+			
+			// ctEntry.getModelClassPK() is the Journal Article getId() which is Journal Article version specific.
+			// ResourcePrimKey is the same for all versions of a Journal Article.
 			
 			int changeType = ctEntry.getChangeType();
 			
@@ -182,6 +194,12 @@ public class CTCollectionModelListener extends BaseModelListener<CTCollection> {
 		
 		_log.info("Filtered Journal Articles count: " + articlesMap.size());
 		
+    	if (articlesMap.isEmpty()) {
+    		_log.info("No Journal Article ctEnties after deduplication.");
+    		
+    		return;
+    	}
+		
 		// The final deduplicated list without deleted articles
 		for (Long key : articlesMap.keySet()) {
 			JournalArticle journalArticle = _journalArticleLocalService.fetchLatestArticle(key, WorkflowConstants.STATUS_APPROVED);
@@ -192,7 +210,13 @@ public class CTCollectionModelListener extends BaseModelListener<CTCollection> {
     			_log.info("Journal Article resourcePrimKey: " + journalArticle.getResourcePrimKey() + ", version: " + journalArticle.getVersion() + ", title: " + journalArticle.getTitle(defaultLanguageId) + ", structureId: " + journalArticle.getDDMStructureId() + " with postLoginReference: " + getPostLoginReferenceExpandoFields(journalArticle, defaultLocale));
     			
     			// TODO: DO SOMETHING HERE...
-			}    			
+    			
+//    			try {
+//					Thread.sleep(30000);
+//				} catch (InterruptedException e) {
+//					_log.error(e);
+//				}
+			}
 		}
     }
     
