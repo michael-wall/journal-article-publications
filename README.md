@@ -1,6 +1,6 @@
 ## Introduction ##
 - This custom OSGi module contains a custom Model Listener for CTCollection entity.
-- The logic is triggered asnynchronously from within the onAfterUpdate event after a check for model.getStatus() == WorkflowConstants.STATUS_APPROVED to ensure it is only triggered when a Publication is Published.
+- The logic is triggered asynchronously from within the onAfterUpdate event after a check for model.getStatus() == WorkflowConstants.STATUS_APPROVED to ensure it is only triggered when a Publication is Published.
 - The logic identifies the relevant set of unique Web Content Articles that have been added or modified within the Publication based on the following logic:
   - They are within a specified set of Sites and / or Asset Libraries.
   - They have the PostLogin custom field set to true and the PostLoginReference custom field populated.
