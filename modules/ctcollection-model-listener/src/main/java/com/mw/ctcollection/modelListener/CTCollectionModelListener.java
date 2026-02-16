@@ -4,6 +4,7 @@ import com.liferay.change.tracking.constants.CTConstants;
 import com.liferay.change.tracking.model.CTCollection;
 import com.liferay.change.tracking.model.CTEntry;
 import com.liferay.change.tracking.service.CTEntryLocalService;
+import com.liferay.counter.kernel.service.CounterLocalService;
 import com.liferay.dynamic.data.mapping.storage.DDMFormFieldValue;
 import com.liferay.dynamic.data.mapping.storage.DDMFormValues;
 import com.liferay.expando.kernel.model.ExpandoBridge;
@@ -209,7 +210,7 @@ public class CTCollectionModelListener extends BaseModelListener<CTCollection> {
     		return;
     	}
     	
-    	ObjectDefinition postLoginEventObjectDefinition = objectDefinitionLocalService.fetchObjectDefinitionByExternalReferenceCode(POST_LOGIN_EVENT_OBJECT_DEFINITION_ERC, permissionChecker.getCompanyId());
+    	ObjectDefinition postLoginEventObjectDefinition = _objectDefinitionLocalService.fetchObjectDefinitionByExternalReferenceCode(POST_LOGIN_EVENT_OBJECT_DEFINITION_ERC, permissionChecker.getCompanyId());
 
     	if (postLoginEventObjectDefinition == null) _log.info("postLoginEventObjectDefinition not found...");
     	
@@ -235,9 +236,9 @@ public class CTCollectionModelListener extends BaseModelListener<CTCollection> {
 	    				postLoginEventObjectEntryFields.put("articleTitle", journalArticle.getTitle(defaultLanguageId));
 	    				postLoginEventObjectEntryFields.put("articleFriendlyURL", friendlyUrls.get(defaultLocale));
 	    				postLoginEventObjectEntryFields.put("articlePostLoginReference", getPostLoginReferenceExpandoFields(journalArticle, defaultLocale));
-	    				postLoginEventObjectEntryFields.put("response", UUID.randomUUID().toString()); // Add response from backend...
-    			
-						ObjectEntry postLoginEventObjectEntry = objectEntryLocalService.addObjectEntry(
+	    				postLoginEventObjectEntryFields.put("response", UUID.randomUUID().toString()); // TODO Add response from backend...
+	    				
+						ObjectEntry postLoginEventObjectEntry = _objectEntryLocalService.addObjectEntry(
 						    permissionChecker.getUserId(),
 						    0,
 						    postLoginEventObjectDefinition.getObjectDefinitionId(),
@@ -344,10 +345,13 @@ public class CTCollectionModelListener extends BaseModelListener<CTCollection> {
 	private CTEntryLocalService _ctEntryLocalService;
 	
     @Reference
-    private ObjectEntryLocalService objectEntryLocalService;
+    private ObjectEntryLocalService _objectEntryLocalService;
 
     @Reference
-    private ObjectDefinitionLocalService objectDefinitionLocalService;
+    private ObjectDefinitionLocalService _objectDefinitionLocalService;
 	
+    @Reference
+    private CounterLocalService _counterLocalService;
+    
 	private static final Log _log = LogFactoryUtil.getLog(CTCollectionModelListener.class);
 }
