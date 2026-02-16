@@ -6,6 +6,7 @@
   - They have the PostLogin custom field set to true and the PostLoginReference custom field populated.
   - Deduplicates articles that were created and then updated within the Publication or existing articles that had multiple updates performed within the Publication.
   - Excludes articles that were moved to trash or that were expired within the Publication.
+- (If enabled) the logic will create a PostLoginEvent Object record for each article with the response from the processing.
 
 ## Setup ##
 - Create the following Web Content Article Custom fields:
@@ -18,6 +19,8 @@
     - Type: Input Field / Text
      - Localize Field Name Disabled
      - Searchable as Keyword Enabled
+- Optionally import the PostLoginEvent object definition (from the objectDefinition folder) to enable the PostLoginEvent tracking.
+	- Ensure the Object Definition is Published and retains an External Reference Code of POST_LOGIN_EVENT after import.
 - Build and deploy the custom OSGi module to all nodes in the environment:
   - ctcollection-model-listener / com.mw.ctcollection.model.listener-1.0.0.jar
  

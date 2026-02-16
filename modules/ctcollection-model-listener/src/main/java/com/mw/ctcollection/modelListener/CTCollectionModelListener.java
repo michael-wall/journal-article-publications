@@ -9,6 +9,10 @@ import com.liferay.dynamic.data.mapping.storage.DDMFormValues;
 import com.liferay.expando.kernel.model.ExpandoBridge;
 import com.liferay.journal.model.JournalArticle;
 import com.liferay.journal.service.JournalArticleLocalService;
+import com.liferay.object.model.ObjectDefinition;
+import com.liferay.object.model.ObjectEntry;
+import com.liferay.object.service.ObjectDefinitionLocalService;
+import com.liferay.object.service.ObjectEntryLocalService;
 import com.liferay.portal.kernel.exception.ModelListenerException;
 import com.liferay.portal.kernel.exception.PortalException;
 import com.liferay.portal.kernel.log.Log;
@@ -22,11 +26,13 @@ import com.liferay.portal.kernel.security.permission.PermissionChecker;
 import com.liferay.portal.kernel.security.permission.PermissionThreadLocal;
 import com.liferay.portal.kernel.service.ClassNameLocalService;
 import com.liferay.portal.kernel.service.CompanyLocalService;
+import com.liferay.portal.kernel.service.ServiceContext;
 import com.liferay.portal.kernel.transaction.TransactionCommitCallbackUtil;
 import com.liferay.portal.kernel.util.LocaleUtil;
 import com.liferay.portal.kernel.util.Validator;
 import com.liferay.portal.kernel.workflow.WorkflowConstants;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -34,6 +40,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 
@@ -54,6 +61,8 @@ public class CTCollectionModelListener extends BaseModelListener<CTCollection> {
 		static final String POST_LOGIN = "PostLogin";
 		static final String POST_LOGIN_REFERENCE = "PostLoginReference";
 	}
+	
+	private static final String POST_LOGIN_EVENT_OBJECT_DEFINITION_ERC = "POST_LOGIN_EVENT"; // TODO Externalize
 	
 	@Activate
 	protected void activate(Map<String, Object> properties) {
@@ -94,7 +103,7 @@ public class CTCollectionModelListener extends BaseModelListener<CTCollection> {
 		            	
 		            	_log.info("Completed...");
 		            } catch (Exception e) {
-		                _log.error("Error", e);
+		                _log.error("Error...", e);
 		            }
 		        });
 
@@ -182,12 +191,12 @@ public class CTCollectionModelListener extends BaseModelListener<CTCollection> {
 			if (Validator.isNotNull(postLoginReference)) articlesMap.put(journalArticle.getResourcePrimKey(), journalArticle);
 		}
 		
-		// The ones in articleDeletedMap shouldn't be in articlesMap but just in case...
+		// The ones in articleDeletedMap shouldn't be in articlesMap so probably not needed...
 		for (Long key : articleDeletedMap.keySet()) {
 		    articlesMap.remove(key);
 		}
 
-		// The ones in articleExpiredMap shouldn't be in articlesMap but just in case...
+		// The ones in articleExpiredMap shouldn't be in articlesMap so probably not needed...
 		for (Long key : articleExpiredMap.keySet()) {
 		    articlesMap.remove(key);
 		}
@@ -199,23 +208,56 @@ public class CTCollectionModelListener extends BaseModelListener<CTCollection> {
     		
     		return;
     	}
-		
+    	
+    	ObjectDefinition postLoginEventObjectDefinition = objectDefinitionLocalService.fetchObjectDefinitionByExternalReferenceCode(POST_LOGIN_EVENT_OBJECT_DEFINITION_ERC, permissionChecker.getCompanyId());
+
+    	if (postLoginEventObjectDefinition == null) _log.info("postLoginEventObjectDefinition not found...");
+    	
 		// The final deduplicated list without deleted articles
 		for (Long key : articlesMap.keySet()) {
 			JournalArticle journalArticle = _journalArticleLocalService.fetchLatestArticle(key, WorkflowConstants.STATUS_APPROVED);
 			
-			if (journalArticle == null) {
-				_log.info("Journal Article not found: " + key);
-			} else {    				
+			if (journalArticle != null) {
     			_log.info("Journal Article resourcePrimKey: " + journalArticle.getResourcePrimKey() + ", version: " + journalArticle.getVersion() + ", title: " + journalArticle.getTitle(defaultLanguageId) + ", structureId: " + journalArticle.getDDMStructureId() + " with postLoginReference: " + getPostLoginReferenceExpandoFields(journalArticle, defaultLocale));
     			
     			// TODO: DO SOMETHING HERE...
+    			
+    			// Add a PostLoginEvent record per article with response from backend...
+    			if (postLoginEventObjectDefinition != null) {
+    				try {
+	    				Map<String, Serializable> postLoginEventObjectEntryFields = new HashMap<>();
+	    				Map<Locale, String> friendlyUrls = journalArticle.getFriendlyURLMap();
+	    				
+	    				postLoginEventObjectEntryFields.put("publicationID", model.getCtCollectionId());
+	    				postLoginEventObjectEntryFields.put("publicationName", model.getName());
+	    				postLoginEventObjectEntryFields.put("siteId", journalArticle.getGroupId());
+	    				postLoginEventObjectEntryFields.put("articleResourcePrimKey", journalArticle.getResourcePrimKey());
+	    				postLoginEventObjectEntryFields.put("articleTitle", journalArticle.getTitle(defaultLanguageId));
+	    				postLoginEventObjectEntryFields.put("articleFriendlyURL", friendlyUrls.get(defaultLocale));
+	    				postLoginEventObjectEntryFields.put("articlePostLoginReference", getPostLoginReferenceExpandoFields(journalArticle, defaultLocale));
+	    				postLoginEventObjectEntryFields.put("response", UUID.randomUUID().toString()); // Add response from backend...
+    			
+						ObjectEntry postLoginEventObjectEntry = objectEntryLocalService.addObjectEntry(
+						    permissionChecker.getUserId(),
+						    0,
+						    postLoginEventObjectDefinition.getObjectDefinitionId(),
+						    postLoginEventObjectEntryFields,
+						    new ServiceContext()
+						);
+						
+						_log.info("Created objectEntryId: " + postLoginEventObjectEntry.getObjectEntryId());
+					} catch (PortalException e) {
+						_log.error(e);
+					}
+    			}
     			
 //    			try {
 //					Thread.sleep(30000);
 //				} catch (InterruptedException e) {
 //					_log.error(e);
 //				}
+			} else {
+				_log.info("Journal Article not found: " + key);
 			}
 		}
     }
@@ -263,6 +305,9 @@ public class CTCollectionModelListener extends BaseModelListener<CTCollection> {
 		return postLoginReference;
 	}
 	
+	/**
+	 * This method assumes that the Site(s) use the same Default Locale as the Company...
+	 */
 	public Locale getDefaultLocale(long companyId){
 		
 		Company company = _companyLocalService.fetchCompanyById(companyId);
@@ -297,6 +342,12 @@ public class CTCollectionModelListener extends BaseModelListener<CTCollection> {
 	
 	@Reference
 	private CTEntryLocalService _ctEntryLocalService;
+	
+    @Reference
+    private ObjectEntryLocalService objectEntryLocalService;
+
+    @Reference
+    private ObjectDefinitionLocalService objectDefinitionLocalService;
 	
 	private static final Log _log = LogFactoryUtil.getLog(CTCollectionModelListener.class);
 }
